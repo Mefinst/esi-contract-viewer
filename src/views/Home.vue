@@ -68,7 +68,8 @@
                 'contractsIndexed',
                 'contractItemsIndexed',
                 'contractsPerRegion',
-                'contractsPerItem'
+                'contractsPerItem',
+                'itemNames'
             ]),
             ...mapGetters(['regions']),
             slowSearch: {
@@ -98,10 +99,16 @@
                 if (this.shouldInclude.length > 0)
                     contracts = contracts.filter(contractId => this.shouldInclude.some(typeId => this.contractsPerItem[typeId] != null && this.contractsPerItem[typeId].includes(contractId)))
 
-                return contracts.map(contractId => ({
-                    ...this.contractsIndexed[contractId],
-                    items: this.contractItemsIndexed[contractId]
-                })).slice(page * 100, page * 100 + 100)
+                return contracts.map(contractId => {
+                    const items = this.contractItemsIndexed[contractId] ? this.contractItemsIndexed[contractId] : []
+                    return {
+                        ...this.contractsIndexed[contractId],
+                        items: items.map(item => ({
+                            ...item,
+                            name: this.itemNames[item.type_id]
+                        }))
+                    }
+                }).slice(page * 100, page * 100 + 100)
             }
         },
         async beforeMount() {

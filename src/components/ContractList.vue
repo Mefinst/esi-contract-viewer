@@ -35,7 +35,7 @@
 
         contractName(contract: EsiContract) {
             if (contract.items == null || contract.items.length === 0) return "Empty contract"
-            if (contract.items.length === 1) return contract.items[0].type_id
+            if (contract.items.length === 1) return contract.items[0].name
 
             return "Multiple items"
         }

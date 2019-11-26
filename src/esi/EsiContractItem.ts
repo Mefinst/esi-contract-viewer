@@ -7,5 +7,6 @@ export default interface EsiContractItem {
     record_id: bigint
     runs: number
     time_efficiency: number
-    type_id: number
+    type_id: number,
+    name?: string
 }

@@ -15,7 +15,8 @@ export default new Vuex.Store({
         contractsIndexed: {} as Index<EsiContract>,
         contractItemsIndexed: {} as Index<Array<EsiContractItem>>,
         contractsPerRegion: {} as Index<Array<number>>,
-        contractsPerItem: {} as Index<Array<number>>
+        contractsPerItem: {} as Index<Array<number>>,
+        itemNames: {} as Index<string>
     },
     mutations: {
         setRegions(state, regions: Index<EsiRegion>) {
@@ -39,6 +40,9 @@ export default new Vuex.Store({
                     Vue.set(state.contractsPerItem, item.type_id, [])
                 state.contractsPerItem[item.type_id].push(contractId)
             }
+        },
+        addItemName(state, {id, name}: { id: number, name: string }) {
+            Vue.set(state.itemNames, id, name)
         }
     },
     actions: {
@@ -62,13 +66,26 @@ export default new Vuex.Store({
             }
         },
 
-        async loadContractItems({commit}, contractId: number) {
+        async loadContractItems({state, commit}, contractId: number) {
             const contractItems = await Esi.getContractItems(contractId)
             if (contractItems != null)
                 commit('addContractItems', {contractId, contractItems})
+
+            const noNameItems = contractItems.filter(item => state.itemNames[item.type_id] == null)
+            const noNameItemIdsDistinct = [...new Set(noNameItems.map(item => item.type_id))]
+
+            const names = noNameItemIdsDistinct.length > 0 ? await Esi.names(noNameItemIdsDistinct) : null
+            if (names != null)
+                for (const name of names)
+                    commit('addItemName', name)
+
         }
+
     },
     getters: {
+        contracts: (state) => {
+            return Object.entries(state.contractsIndexed).map(([, value]) => value)
+        },
         regions: (state) => {
             return Object.entries(state.regionsIndexed).map(([, value]) => value)
         }

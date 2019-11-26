@@ -1,6 +1,7 @@
 import EsiRegion from '@/esi/EsiRegion'
 import EsiContract from '@/esi/EsiContract'
 import EsiContractItem from '@/esi/EsiContractItem'
+import EsiNameResult from '@/esi/EsiNameResult'
 
 export default class Esi {
     public static async getRegions(): Promise<Array<number>> {
@@ -49,7 +50,7 @@ export default class Esi {
         return await Esi.request(`/v2/search?search=${text}&categories=${categories.join(',')}&strict=${strict}`)
     }
 
-    public static async names(ids: Array<number>): Promise<Array<{ id: number, name: string, category: string }>> {
+    public static async names(ids: Array<number>): Promise<Array<EsiNameResult>> {
         return await Esi.request('/v3/universe/names/', 'POST', ids)
     }
 
