@@ -113,9 +113,11 @@
                 await this.loadContracts(this.selectedRegion)
             },
             onSearch: debounce(async function () {
-                this.searchAutocomplete = this.search.length > 2 ? await Esi.names((await Esi.search(this.search, ['inventory_type'])).inventory_type) : []
-                if (this.searchAutocomplete == null) this.searchAutocomplete = []
-                this.shouldInclude = this.search.length > 2 ? (await Esi.search(this.search, ['inventory_type'], this.exactType)).inventory_type : []
+                const notExactSearch = this.search.length > 2 ? (await Esi.search(this.search, ['inventory_type'], false)).inventory_type : []
+                const contractShouldInclude = this.exactType ? (await Esi.search(this.search, ['inventory_type'], this.exactType)).inventory_type : notExactSearch
+                this.searchAutocomplete = notExactSearch.length > 0 ? await Esi.names((notExactSearch)) : []
+
+                this.shouldInclude = contractShouldInclude
             }, 100)
         }
     }
