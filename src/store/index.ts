@@ -7,53 +7,70 @@ import EsiContractItem from '@/esi/EsiContractItem'
 
 Vue.use(Vuex)
 
+type Index<Value> = { [key: number]: Value }
 export default new Vuex.Store({
     state: {
-        regions: new Map<number, EsiRegion>(),
-        contracts: new Map<number, Map<number, EsiContract>>(),
-        contractItems: new Map<number, Array<EsiContractItem>>()
+        regionsLoaded: false,
+        regionsIndexed: {} as Index<EsiRegion>,
+        contractsIndexed: {} as Index<EsiContract>,
+        contractItemsIndexed: {} as Index<Array<EsiContractItem>>,
+        contractsPerRegion: {} as Index<Array<number>>,
+        contractsPerItem: {} as Index<Array<number>>
     },
     mutations: {
-        setRegions(state, regions: Map<number, EsiRegion>) {
-            state.regions = regions
+        setRegions(state, regions: Index<EsiRegion>) {
+            state.regionsIndexed = regions
         },
-        setContracts(state, contracts: Map<number, Map<number, EsiContract>>) {
-            state.contracts = contracts
+        setContracts(state, contracts: Index<EsiContract>) {
+            state.contractsIndexed = contracts
         },
-        addContract(state, {contract, regionId}: {contract: EsiContract, regionId: number}) {
-            let regionIndex = state.contracts.get(regionId)
-            if(regionIndex)
-                regionIndex.set(contract.contract_id, contract)
-            else {
-                regionIndex = new Map()
-                state.contracts.set(regionId, regionIndex)
-                regionIndex.set(contract.contract_id, contract)
-            }
+        addContract(state, {contract, regionId}: { contract: EsiContract, regionId: number }) {
+            Vue.set(state.contractsIndexed, contract.contract_id, contract)
+
+            if (state.contractsPerRegion[regionId] == null)
+                Vue.set(state.contractsPerRegion, regionId, [])
+            state.contractsPerRegion[regionId].push(contract.contract_id)
         },
         addContractItems(state, {contractId, contractItems}: { contractId: number, contractItems: Array<EsiContractItem> }) {
-            state.contractItems.set(contractId, contractItems)
+            Vue.set(state.contractItemsIndexed, contractId, contractItems)
+
+            for (const item of contractItems) {
+                if (state.contractsPerItem[item.type_id] == null)
+                    Vue.set(state.contractsPerItem, item.type_id, [])
+                state.contractsPerItem[item.type_id].push(contractId)
+            }
         }
     },
     actions: {
-        async loadRegions({commit}) {
+        async loadRegions({state, commit}) {
+            if (state.regionsLoaded) return
+
             const regionEntries = (await Promise.all((await Esi.getRegions()).map(async id => ([id, await Esi.getRegion(id)]))))
-            // @ts-ignore
-            const regions = new Map<number, EsiRegion>(regionEntries)
+            const regions = Object.fromEntries(regionEntries)
             commit('setRegions', regions)
+
+            state.regionsLoaded = true
         },
+
         async loadContracts({state, commit, dispatch}, regionId: number) {
             const contracts = await Esi.getPublicContractsAll(regionId)
 
             for (let contract of contracts) {
-              dispatch('loadContractItems', contract.contract_id)
-              commit('addContract', {contract, regionId})
+                if (contract.type === 'item_exchange')
+                    dispatch('loadContractItems', contract.contract_id)
+                commit('addContract', {contract, regionId})
             }
         },
 
         async loadContractItems({commit}, contractId: number) {
             const contractItems = await Esi.getContractItems(contractId)
-            commit('addContractItems', {contractId, contractItems})
+            if (contractItems != null)
+                commit('addContractItems', {contractId, contractItems})
         }
     },
-    modules: {}
+    getters: {
+        regions: (state) => {
+            return Object.entries(state.regionsIndexed).map(([, value]) => value)
+        }
+    }
 })

@@ -4,7 +4,7 @@
             <label>
                 <span>Region</span>
                 <select v-model="selectedRegion">
-                    <option v-for="region of regions.values()" :key="region.region_id" :value="region.region_id">
+                    <option v-for="region of regions" :key="region.region_id" :value="region.region_id">
                         {{region.name}}
                     </option>
                 </select>
@@ -20,22 +20,31 @@
             </label>
             <label>
                 <span>Should include</span>
-                <input type="text" v-model="search" @keyup="onSearchInput" list="searchTypes">
+                <input type="text" v-model="slowSearch" list="searchTypes">
                 <datalist id="searchTypes">
-                    <option v-for="item of searchAutocomplete" :key="item.id" :value="item.id">{{item.name}}</option>
+                    <option v-for="item of searchAutocomplete" :key="item.id" :value="item.name">{{item.name}}</option>
                 </datalist>
+            </label>
+            <label>
+                <input type="checkbox" v-model="exactType" @change="onSearch">
+                <span>Exact type</span>
+            </label>
+            <label>
+                <span>Page</span>
+                <input type="number" min="0" step="1" v-model="slowPage">
             </label>
             <button v-on:click="getContracts">Get Contracts</button>
         </div>
-        <ContractList :contracts="contracts.has(selectedRegion) ? Array.from(contracts.get(selectedRegion).values()) : null"/>
+        <ContractList :contracts="filteredContracts"/>
     </div>
 </template>
 
 <script lang="js">
     // @ is an alias to /src
-    import ContractList from "@/components/ContractList";
-    import Esi from "@/esi/Esi";
-    import {mapActions, mapState} from "vuex";
+    import ContractList from "@/components/ContractList"
+    import Esi from "@/esi/Esi"
+    import {mapActions, mapGetters, mapState} from "vuex"
+    import {debounce} from 'lodash'
 
     export default {
         name: 'home',
@@ -48,15 +57,51 @@
                 contractType: 'item_exchange',
                 search: '',
                 searchAutocomplete: [],
-                exactType: null
+                shouldInclude: [],
+                exactType: false,
+                page: 1
             }
         },
         computed: {
-            ...mapState(['regions', 'contracts']),
+            ...mapState([
+                'regionsIndexed',
+                'contractsIndexed',
+                'contractItemsIndexed',
+                'contractsPerRegion',
+                'contractsPerItem'
+            ]),
+            ...mapGetters(['regions']),
+            slowSearch: {
+                get() {
+                    return this.search
+                },
+                set(value) {
+                    this.search = value
+                    this.onSearch()
+                }
+            },
+            slowPage: {
+                get() {
+                    return this.page
+                },
+                set: debounce(function (value) {
+                    this.page = value
+                }, 50)
+            },
             filteredContracts() {
-                const regionIndex = this.contracts.get(this.selectedRegion)
-                if(regionIndex == null) return []
-                return Array.from(regionIndex.values()).filter(it => it.type === 'item_exchange')
+                const page = this.page - 1
+                let contracts = []
+                if (this.contractsPerRegion[this.selectedRegion] == null) return []
+
+                contracts = this.contractsPerRegion[this.selectedRegion]
+
+                if (this.shouldInclude.length > 0)
+                    contracts = contracts.filter(contractId => this.shouldInclude.some(typeId => this.contractsPerItem[typeId] != null && this.contractsPerItem[typeId].includes(contractId)))
+
+                return contracts.map(contractId => ({
+                    ...this.contractsIndexed[contractId],
+                    items: this.contractItemsIndexed[contractId]
+                })).slice(page * 100, page * 100 + 100)
             }
         },
         async beforeMount() {
@@ -64,19 +109,14 @@
         },
         methods: {
             ...mapActions(['loadRegions', 'loadContracts']),
-
-            async onSearchInput() {
-                //TODO: add debounce
-                const searchResult = (await Esi.search(this.search, ['inventory_type'], false)).inventory_type
-                this.exactType = searchResult.length === 1 ? searchResult[0].id : null
-                this.searchAutocomplete = await Esi.names(searchResult)
-                if (this.exactType == null)
-                    this.exactType = (await Esi.search(this.search, ['inventory_type'], false)).inventory_type[0]
-
-            },
             async getContracts() {
                 await this.loadContracts(this.selectedRegion)
-            }
+            },
+            onSearch: debounce(async function () {
+                this.searchAutocomplete = this.search.length > 2 ? await Esi.names((await Esi.search(this.search, ['inventory_type'])).inventory_type) : []
+                if (this.searchAutocomplete == null) this.searchAutocomplete = []
+                this.shouldInclude = this.search.length > 2 ? (await Esi.search(this.search, ['inventory_type'], this.exactType)).inventory_type : []
+            }, 100)
         }
     }
 </script>

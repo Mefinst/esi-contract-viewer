@@ -46,7 +46,7 @@ export default class Esi {
 
 
     public static async search(text: string, categories: Array<string> = ['inventory_type'], strict: boolean = false) {
-        return await Esi.request(`/v2/search?search=${text}&categories=${categories.join(',')}`)
+        return await Esi.request(`/v2/search?search=${text}&categories=${categories.join(',')}&strict=${strict}`)
     }
 
     public static async names(ids: Array<number>): Promise<Array<{ id: number, name: string, category: string }>> {
@@ -60,7 +60,6 @@ export default class Esi {
     private static requestsLimit = 100
     private static requestsCount = 0
 
-    private static globalChain = Promise.resolve()
 
     private static async request(url: string, method: string = 'GET', parameters: any = null): Promise<any> {
         return await new Promise(async resolve => {
@@ -99,6 +98,7 @@ export default class Esi {
             case 204:
                 await response.text()
                 return null
+            case 400:
             case 404:
                 await response.text()
                 return undefined
