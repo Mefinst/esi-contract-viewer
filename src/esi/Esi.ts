@@ -64,6 +64,7 @@ export default class Esi {
 
     private static async request(url: string, method: string = 'GET', parameters: any = null): Promise<any> {
         return await new Promise(async resolve => {
+            //TODO: optimize that creepy thing
             while (Esi.requestsCount > Esi.requestsLimit)
                 await (async () => new Promise(resolve1 => {
                     setTimeout(resolve1, Esi.queueTimeout)
