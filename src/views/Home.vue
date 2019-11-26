@@ -69,7 +69,7 @@
                 'contractItemsIndexed',
                 'contractsPerRegion',
                 'contractsPerItem',
-                'itemNames'
+                'names'
             ]),
             ...mapGetters(['regions']),
             slowSearch: {
@@ -105,7 +105,7 @@
                         ...this.contractsIndexed[contractId],
                         items: items.map(item => ({
                             ...item,
-                            name: this.itemNames[item.type_id]
+                            name: this.names[item.type_id]
                         }))
                     }
                 }).slice(page * 100, page * 100 + 100)

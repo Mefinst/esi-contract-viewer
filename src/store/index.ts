@@ -16,7 +16,7 @@ export default new Vuex.Store({
         contractItemsIndexed: {} as Index<Array<EsiContractItem>>,
         contractsPerRegion: {} as Index<Array<number>>,
         contractsPerItem: {} as Index<Array<number>>,
-        itemNames: {} as Index<string>
+        names: {} as Index<string>
     },
     mutations: {
         setRegions(state, regions: Index<EsiRegion>) {
@@ -41,9 +41,9 @@ export default new Vuex.Store({
                 state.contractsPerItem[item.type_id].push(contractId)
             }
         },
-        addItemName(state, {id, name}: { id: number, name: string }) {
-            Vue.set(state.itemNames, id, name)
-        }
+        addName(state, {id, name}: { id: number, name: string }) {
+            Vue.set(state.names, id, name)
+        },
     },
     actions: {
         async loadRegions({state, commit}) {
@@ -62,23 +62,27 @@ export default new Vuex.Store({
             for (let contract of contracts) {
                 if (contract.type === 'item_exchange')
                     dispatch('loadContractItems', contract.contract_id)
+                dispatch('loadNames', [contract.issuer_id])
+                dispatch('loadNames', [contract.issuer_corporation_id])
                 commit('addContract', {contract, regionId})
             }
         },
 
-        async loadContractItems({state, commit}, contractId: number) {
+        async loadContractItems({state, commit, dispatch}, contractId: number) {
             const contractItems = await Esi.getContractItems(contractId)
             if (contractItems != null)
                 commit('addContractItems', {contractId, contractItems})
 
-            const noNameItems = contractItems.filter(item => state.itemNames[item.type_id] == null)
-            const noNameItemIdsDistinct = [...new Set(noNameItems.map(item => item.type_id))]
+            dispatch('loadNames', contractItems.map(it => it.type_id))
+        },
 
-            const names = noNameItemIdsDistinct.length > 0 ? await Esi.names(noNameItemIdsDistinct) : null
+        async loadNames({state, commit}, ids: Array<number>) {
+            const noNames = [...new Set(ids.filter(id => state.names[id] == null))]
+            const names = noNames.length > 0 ? await Esi.names(noNames) : null
+
             if (names != null)
                 for (const name of names)
-                    commit('addItemName', name)
-
+                    commit('addName', name)
         }
 
     },
